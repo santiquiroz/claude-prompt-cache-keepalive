@@ -34,7 +34,13 @@ The skill arms a **ladder of independent background timers** in one shot (not a 
 git clone https://github.com/santiquiroz/claude-prompt-cache-keepalive ~/.claude/skills/keeping-prompt-cache-warm
 ```
 
-Then just tell Claude something like "I'm going to sleep, keep the cache warm for 8 hours".
+Then wire the hooks so you never have to ask for it:
+
+```bash
+python ~/.claude/skills/keeping-prompt-cache-warm/hooks/install.py
+```
+
+From then on, saying "I'm going to sleep" (or "me voy a dormir", "afk", "back in 2 hours") is enough: the ladder goes up in that turn, and your next message takes it down.
 
 The wake-on-exit behavior was verified in the VS Code extension. In a terminal session, arm a 2-minute test rung first and audit it with `cache_audit.py` before leaving.
 
@@ -45,6 +51,9 @@ The wake-on-exit behavior was verified in the VS Code extension. In a terminal s
 | `scripts/plan.py` | Minutes at which each rung fires (`--hours`, `--every` ≤ 50, `--first`) |
 | `scripts/rung.ps1` / `scripts/rung.sh` | One background timer with stop file and sleep lock |
 | `scripts/cache_audit.py` | Reads a session transcript and flags turns that lost the cache |
+| `hooks/arm-nudge.mjs` | `UserPromptSubmit`: arms the ladder on a leaving phrase, stops it when you return |
+| `hooks/watchdog.mjs` | `Stop`: flags rungs that stopped heart-beating (reload, update, forced sleep) |
+| `hooks/install.py` | Merges both hooks into `~/.claude/settings.json` without touching the rest |
 
 ## Limits
 
