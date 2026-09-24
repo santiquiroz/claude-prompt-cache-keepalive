@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { STALE_MS, aliveFiles, summarizeRungs } from '../hooks/lib.mjs'
+import { STALE_MS, aliveFiles, rungCommand, rungShell, summarizeRungs } from '../hooks/lib.mjs'
 
 const NOW = 1_000_000_000
 const FIVE_HOURS = 5 * 60 * 60 * 1000
@@ -57,4 +57,24 @@ test('aliveFiles does not hide other stat errors', t => {
   const dir = makeRungsDir(t, ['1-1.alive'])
   const stat = () => { throw Object.assign(new Error('EPERM'), { code: 'EPERM' }) }
   assert.throws(() => aliveFiles(dir, stat), /EPERM/)
+})
+
+test('rungCommand runs rung.ps1 with -StateDir on Windows', () => {
+  const command = rungCommand('win32', 'C:\\skill', 'C:\\state\\S')
+  assert.equal(command, "& 'C:\\skill\\scripts\\rung.ps1' -Minutes M -Label 'k/N' -StateDir 'C:\\state\\S'")
+  assert.doesNotMatch(command, /rung\.sh/)
+})
+
+for (const platform of ['linux', 'darwin']) {
+  test(`rungCommand runs rung.sh through bash on ${platform}`, () => {
+    const command = rungCommand(platform, '/home/u/skill', '/home/u/.claude/keepalive/S')
+    assert.equal(command, "bash '/home/u/skill/scripts/rung.sh' M 'k/N' '/home/u/.claude/keepalive/S'")
+    assert.doesNotMatch(command, /rung\.ps1/)
+  })
+}
+
+test('rungShell names the tool that runs the rung command', () => {
+  assert.equal(rungShell('win32'), 'PowerShell')
+  assert.equal(rungShell('linux'), 'Bash')
+  assert.equal(rungShell('darwin'), 'Bash')
 })

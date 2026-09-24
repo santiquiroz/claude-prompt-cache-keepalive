@@ -133,6 +133,18 @@ test('the owner session is told its live ladder is already armed', t => {
   assert.match(result.stdout, /Ya hay una escalera viva/)
 })
 
+test('the arming order uses the rung script of this platform', t => {
+  const home = makeHome(t)
+  const result = runHook(home, 'me voy a dormir')
+  const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext
+  const [script, other, tool] = process.platform === 'win32'
+    ? ['rung.ps1', 'rung.sh', 'PowerShell']
+    : ['rung.sh', 'rung.ps1', 'Bash']
+  assert.ok(context.includes(script), context)
+  assert.ok(!context.includes(other), context)
+  assert.ok(context.includes(`con ${tool} y run_in_background`), context)
+})
+
 test('ownedBy requires both an owner and a session id that match', () => {
   assert.equal(ownedBy({ owner: 'A' }, 'A'), true)
   assert.equal(ownedBy({ owner: 'A' }, 'B'), false)

@@ -3,7 +3,7 @@
 // and stops it the moment they come back.
 import { existsSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { readStdin, parsePayload, isSystemNotification, listLadders, ownedBy, createStateDir, emit } from './lib.mjs'
+import { readStdin, parsePayload, isSystemNotification, listLadders, ownedBy, createStateDir, rungCommand, rungShell, emit } from './lib.mjs'
 
 const SKILL_DIR = join(import.meta.dirname, '..')
 const GRACE_MS = Number(process.env.KEEPALIVE_GRACE_MS ?? 10 * 60 * 1000)
@@ -60,8 +60,8 @@ if (leaving) {
       `El usuario anuncia ausencia. ANTES de responder invoca la skill keeping-prompt-cache-warm y arma la escalera COMPLETA en este mismo turno:\n` +
       `1) Estima las horas de ausencia por lo que dijo el usuario (si no lo dice, pregunta en una linea y arma 8 h por defecto).\n` +
       `2) python ${join(SKILL_DIR, 'scripts', 'plan.py')} --hours H --every 40 --first F  (F por debajo de los minutos de cache restantes menos 10).\n` +
-      `3) Lanza TODOS los peldanos en un solo mensaje, en paralelo, con run_in_background:\n` +
-      `   & '${join(SKILL_DIR, 'scripts', 'rung.ps1')}' -Minutes M -Label 'k/N' -StateDir '${dir}'\n` +
+      `3) Lanza TODOS los peldanos en un solo mensaje, en paralelo, con ${rungShell(process.platform)} y run_in_background:\n` +
+      `   ${rungCommand(process.platform, SKILL_DIR, dir)}\n` +
       `4) State dir ya creado y sin archivo stop: ${dir}. No uses otro.\n` +
       `5) No des por terminada la respuesta hasta que cada peldano figure como tarea en background.`
     )

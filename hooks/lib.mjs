@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, posix, win32 } from 'node:path'
 import { homedir } from 'node:os'
 
 export const ROOT = join(homedir(), '.claude', 'keepalive')
@@ -101,6 +101,17 @@ export function createStateDir(sessionId) {
 // Leftover .alive files from a killed ladder would make the new one look dead or old enough to stop.
 function clearRungs(rungsDir) {
   for (const name of aliveNames(rungsDir)) rmSync(join(rungsDir, name), { force: true })
+}
+
+export function rungShell(platform) {
+  return platform === 'win32' ? 'PowerShell' : 'Bash'
+}
+
+export function rungCommand(platform, skillDir, stateDir) {
+  if (platform === 'win32') {
+    return `& '${win32.join(skillDir, 'scripts', 'rung.ps1')}' -Minutes M -Label 'k/N' -StateDir '${stateDir}'`
+  }
+  return `bash '${posix.join(skillDir, 'scripts', 'rung.sh')}' M 'k/N' '${stateDir}'`
 }
 
 export function emit(output) {

@@ -21,7 +21,7 @@ The session cache lives exactly 60 minutes after the last model request (a 60 mi
 2. **Plan the rungs:** `python <skill>/scripts/plan.py --hours H --every 40 --first F`, with `F` under the cache minutes left minus 10 (20 if unknown). `--every` above 50 is refused.
 3. **Arm every rung at once**, in one message with parallel calls. The rungs are independent timers, not a chain, so one missed wake does not end the rest:
    - Windows: `PowerShell` run_in_background `& '<skill>/scripts/rung.ps1' -Minutes M -Label 'k/N' -StateDir '<dir>'`
-   - macOS/Linux: `Bash` run_in_background `<skill>/scripts/rung.sh M k/N <dir>`
+   - macOS/Linux: `Bash` run_in_background `bash '<skill>/scripts/rung.sh' M 'k/N' '<dir>'`
    Each rung holds a sleep lock while it waits (SetThreadExecutionState, caffeinate, systemd-inhibit). Arm while the user is still there: they leave only once every rung shows as a running background task and no permission prompt is pending.
 4. **While the user is away, every wake is a tick:** `KEEPALIVE_TICK`, `KEEPALIVE_STOPPED`, or a finished background job, workflow or subagent. Answer with one short line (e.g. `keepalive 3/12`) and no tool calls. Do not commit, push, open PRs, delegate, read diffs or ask questions, even when a job finished with work ready to ship: mention it in that line and do it when the user is back. Do not claim the cache is warm; only the audit can tell. A pending approval prompt blocks every later wake.
 5. **The user's first message that is not a notification means they are back:** create `<dir>/stop` before anything else, whatever the message says. Each remaining rung exits within a minute with `KEEPALIVE_STOPPED`; answer each with one line, no tools.
