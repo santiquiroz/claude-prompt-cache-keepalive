@@ -17,7 +17,7 @@ The session cache lives exactly 60 minutes after the last model request (a 60 mi
 | Foreground `sleep` | Blocked |
 
 ## Recipe
-1. **Pick a state dir per session**, e.g. `~/.claude/keepalive/<short-name>`, and delete any stale `stop` file in it.
+1. **Pick a state dir per session**, e.g. `~/.claude/keepalive/<short-name>`, delete any stale `stop` file in it and write this session's id to `<dir>/owner` (the id appears in the scratchpad path). The hooks ignore a ladder without `owner` or owned by another session: they never stop it, mark it `DEAD` or let it block a re-arm.
 2. **Plan the rungs:** `python <skill>/scripts/plan.py --hours H --every 40 --first F`, with `F` under the cache minutes left minus 10 (20 if unknown). `--every` above 50 is refused.
 3. **Arm every rung at once**, in one message with parallel calls. The rungs are independent timers, not a chain, so one missed wake does not end the rest:
    - Windows: `PowerShell` run_in_background `& '<skill>/scripts/rung.ps1' -Minutes M -Label 'k/N' -StateDir '<dir>'`
@@ -34,7 +34,7 @@ The skill only fires if something invokes it, so two hooks in `~/.claude/setting
 | Hook | Event | What it does |
 |---|---|---|
 | `hooks/arm-nudge.mjs` | `UserPromptSubmit` | On a leaving phrase ("me voy a dormir", "vuelvo en", "afk"...), creates the state dir, writes `owner` with the session id and injects the arming order, so the ladder goes up in that same turn. On any other message, once the ladder is older than 10 minutes, it writes `stop` itself: the user is back. Background-task wakes (`KEEPALIVE_TICK`, `KEEPALIVE_STOPPED`, finished jobs and workflows) also fire this hook as prompts starting with `<task-notification>`; those are never read as a leaving phrase or a return. It also reports a ladder that died while they were away, even on a notification. |
-| `hooks/watchdog.mjs` | `Stop` | Flags a ladder whose rungs stopped heart-beating (window reload, update, forced sleep) and leaves a `DEAD` marker for the next return. |
+| `hooks/watchdog.mjs` | `Stop` | Flags a ladder of this session whose rungs stopped heart-beating (window reload, update, forced sleep) and leaves a `DEAD` marker for the next return. |
 
 Each rung keeps `<dir>/rungs/<label>.alive` fresh every minute and deletes it on a clean exit, so a **stale** `.alive` file is exactly the evidence that a rung was killed. `KEEPALIVE_GRACE_MS` overrides the 10-minute grace (used by the tests).
 

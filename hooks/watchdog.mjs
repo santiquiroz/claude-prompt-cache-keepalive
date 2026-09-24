@@ -2,10 +2,11 @@
 // Stop: flags a ladder whose rungs stopped heart-beating (VS Code reload, update, OS sleep).
 import { writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { readStdin, parsePayload, listLadders, emit } from './lib.mjs'
+import { readStdin, parsePayload, listLadders, ownedBy, emit } from './lib.mjs'
 
-await readStdin()
+const sessionId = parsePayload(await readStdin()).session_id ?? null
 const broken = listLadders()
+  .filter(ladder => ownedBy(ladder, sessionId))
   .filter(ladder => !ladder.stopped && ladder.stale.length > 0 && ladder.live.length === 0)
 
 if (!broken.length) process.exit(0)

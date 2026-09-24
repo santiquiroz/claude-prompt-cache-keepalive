@@ -63,8 +63,9 @@ function readOwner(dir) {
   try { return readFileSync(path, 'utf8').trim() } catch { return null }
 }
 
+// Several sessions share ROOT: a ladder without owner, or a session without id, belongs to nobody.
 export function ownedBy(ladder, sessionId) {
-  return !ladder.owner || !sessionId || ladder.owner === sessionId
+  return Boolean(sessionId) && ladder.owner === sessionId
 }
 
 export function createStateDir(sessionId) {

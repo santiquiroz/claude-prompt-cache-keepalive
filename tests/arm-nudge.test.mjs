@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { isSystemNotification } from '../hooks/lib.mjs'
+import { isSystemNotification, ownedBy } from '../hooks/lib.mjs'
 
 const HOOK = join(import.meta.dirname, '..', 'hooks', 'arm-nudge.mjs')
 const SESSION = 'S'
@@ -30,9 +30,9 @@ function armLadder(t) {
   return { home, dir }
 }
 
-function runHook(home, prompt) {
+function runHook(home, prompt, sessionId = SESSION) {
   return spawnSync(process.execPath, [HOOK], {
-    input: JSON.stringify({ session_id: SESSION, prompt }),
+    input: JSON.stringify({ session_id: sessionId, prompt }),
     encoding: 'utf8',
     env: { ...process.env, HOME: home, USERPROFILE: home, KEEPALIVE_GRACE_MS: '0' },
   })
@@ -85,4 +85,50 @@ test('isSystemNotification recognizes only prompts that open with a task notific
   assert.equal(isSystemNotification(`mira esto: ${TICK_NOTIFICATION}`), false)
   assert.equal(isSystemNotification(''), false)
   assert.equal(isSystemNotification(undefined), false)
+})
+
+function armManualLadder(t) {
+  const home = makeHome(t)
+  const dir = join(home, '.claude', 'keepalive', 'sost')
+  mkdirSync(join(dir, 'rungs'), { recursive: true })
+  writeFileSync(join(dir, 'rungs', '2-6.alive'), '', 'utf8')
+  return { home, dir }
+}
+
+test('a message from another session does not stop a ladder without owner', t => {
+  const { home, dir } = armManualLadder(t)
+  const result = runHook(home, 'revisa el build', 'OTHER')
+  assert.equal(result.status, 0)
+  assert.equal(existsSync(join(dir, 'stop')), false)
+})
+
+test('a ladder without owner does not block another session from arming its own', t => {
+  const { home } = armManualLadder(t)
+  const result = runHook(home, 'me voy a dormir', 'OTHER')
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /anuncia ausencia/)
+  assert.doesNotMatch(result.stdout, /Ya hay una escalera viva/)
+  assert.equal(existsSync(join(home, '.claude', 'keepalive', 'OTHER', 'owner')), true)
+})
+
+test('a message from another session does not stop an owned ladder', t => {
+  const { home, dir } = armLadder(t)
+  const result = runHook(home, 'ya volví', 'OTHER')
+  assert.equal(result.status, 0)
+  assert.equal(existsSync(join(dir, 'stop')), false)
+})
+
+test('the owner session is told its live ladder is already armed', t => {
+  const { home } = armLadder(t)
+  const result = runHook(home, 'me voy a dormir')
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /Ya hay una escalera viva/)
+})
+
+test('ownedBy requires both an owner and a session id that match', () => {
+  assert.equal(ownedBy({ owner: 'A' }, 'A'), true)
+  assert.equal(ownedBy({ owner: 'A' }, 'B'), false)
+  assert.equal(ownedBy({ owner: null }, 'A'), false)
+  assert.equal(ownedBy({ owner: 'A' }, null), false)
+  assert.equal(ownedBy({ owner: null }, null), false)
 })
