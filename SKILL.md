@@ -18,7 +18,7 @@ The session cache lives exactly 60 minutes after the last model request (a 60 mi
 
 ## Recipe
 1. **Pick a state dir per session**, e.g. `~/.claude/keepalive/<short-name>`, delete any stale `stop` file in it and write this session's id to `<dir>/owner` (the id appears in the scratchpad path). The hooks ignore a ladder without `owner` or owned by another session: they never stop it, mark it `DEAD` or let it block a re-arm.
-2. **Plan the rungs:** `python <skill>/scripts/plan.py --hours H --every 40 --first F`, with `F` under the cache minutes left minus 10 (20 if unknown). `--every` above 50 is refused.
+2. **Plan the rungs:** `python <skill>/scripts/plan.py --hours H --every 40 --first F`, with `F` under the cache minutes left minus 10 (20 if unknown). `--every` or `--first` above 50, and values that are not above 0, are refused; more than 20 ticks prints a warning.
 3. **Arm every rung at once**, in one message with parallel calls. The rungs are independent timers, not a chain, so one missed wake does not end the rest:
    - Windows: `PowerShell` run_in_background `& '<skill>/scripts/rung.ps1' -Minutes M -Label 'k/N' -StateDir '<dir>'`
    - macOS/Linux: `Bash` run_in_background `bash '<skill>/scripts/rung.sh' M 'k/N' '<dir>'`

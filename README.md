@@ -48,7 +48,7 @@ The wake-on-exit behavior was verified in the VS Code extension. In a terminal s
 
 | Script | Purpose |
 |---|---|
-| `scripts/plan.py` | Minutes at which each rung fires (`--hours`, `--every` ≤ 50, `--first`) |
+| `scripts/plan.py` | Minutes at which each rung fires (`--hours`, `--every` ≤ 50, `--first` ≤ 50; warns above 20 ticks) |
 | `scripts/rung.ps1` / `scripts/rung.sh` | One background timer with stop file and sleep lock |
 | `scripts/cache_audit.py` | Reads a session transcript and flags turns that lost the cache |
 | `hooks/arm-nudge.mjs` | `UserPromptSubmit`: arms the ladder on a leaving phrase, stops it when you return |
