@@ -3,7 +3,7 @@
 // and stops it the moment they come back.
 import { existsSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { readStdin, parsePayload, listLadders, ownedBy, createStateDir, emit } from './lib.mjs'
+import { readStdin, parsePayload, isSystemNotification, listLadders, ownedBy, createStateDir, emit } from './lib.mjs'
 
 const SKILL_DIR = join(import.meta.dirname, '..')
 const GRACE_MS = Number(process.env.KEEPALIVE_GRACE_MS ?? 10 * 60 * 1000)
@@ -21,7 +21,8 @@ const raw = await readStdin()
 const payload = parsePayload(raw)
 const prompt = String(payload.prompt ?? '')
 const sessionId = payload.session_id ?? null
-const leaving = AWAY.some(pattern => pattern.test(prompt))
+const notification = isSystemNotification(prompt)
+const leaving = !notification && AWAY.some(pattern => pattern.test(prompt))
 const mine = listLadders().filter(l => !l.stopped && ownedBy(l, sessionId))
 const notes = []
 
@@ -48,7 +49,7 @@ if (leaving) {
       `5) No des por terminada la respuesta hasta que cada peldano figure como tarea en background.`
     )
   }
-} else {
+} else if (!notification) {
   for (const ladder of mine) {
     const armedAgo = ladder.armedAtMs ? Date.now() - ladder.armedAtMs : 0
     if (armedAgo < GRACE_MS) continue

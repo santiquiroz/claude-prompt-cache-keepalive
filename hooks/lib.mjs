@@ -19,6 +19,11 @@ export function parsePayload(raw) {
   try { return JSON.parse(raw) } catch { return {} }
 }
 
+// UserPromptSubmit also fires for background-task wakes (ticks, STOPPED, workflows), which are not the user.
+export function isSystemNotification(prompt) {
+  return String(prompt ?? '').trimStart().startsWith('<task-notification>')
+}
+
 function aliveFiles(rungsDir) {
   if (!existsSync(rungsDir)) return []
   return readdirSync(rungsDir)
