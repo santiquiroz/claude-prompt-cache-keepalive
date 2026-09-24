@@ -7,7 +7,7 @@ import { readStdin, parsePayload, listLadders, ownedBy, emit } from './lib.mjs'
 const sessionId = parsePayload(await readStdin()).session_id ?? null
 const broken = listLadders()
   .filter(ladder => ownedBy(ladder, sessionId))
-  .filter(ladder => !ladder.stopped && ladder.stale.length > 0 && ladder.live.length === 0)
+  .filter(ladder => !ladder.stopped && ladder.dead)
 
 if (!broken.length) process.exit(0)
 

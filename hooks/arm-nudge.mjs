@@ -7,6 +7,7 @@ import { readStdin, parsePayload, isSystemNotification, listLadders, ownedBy, cr
 
 const SKILL_DIR = join(import.meta.dirname, '..')
 const GRACE_MS = Number(process.env.KEEPALIVE_GRACE_MS ?? 10 * 60 * 1000)
+const AUDIT_HINT = 'El cache pudo haberse enfriado; verificalo con scripts/cache_audit.py antes de afirmar nada.'
 
 const AWAY = [
   /\bme voy a dormir\b/i, /\bvoy a dormir\b/i, /\bme duermo\b/i, /\bbuenas noches\b/i,
@@ -23,13 +24,29 @@ const prompt = String(payload.prompt ?? '')
 const sessionId = payload.session_id ?? null
 const notification = isSystemNotification(prompt)
 const leaving = !notification && AWAY.some(pattern => pattern.test(prompt))
-const mine = listLadders().filter(l => !l.stopped && ownedBy(l, sessionId))
+const mine = listLadders()
+  .filter(l => !l.stopped && ownedBy(l, sessionId))
+  .map(ladder => ({ ...ladder, marked: existsSync(join(ladder.dir, 'DEAD')) }))
 const notes = []
 
-for (const ladder of mine) {
+function isPastGrace(ladder) {
+  return ladder.dead || Date.now() - ladder.armedAtMs >= GRACE_MS
+}
+
+function deadNote(ladder) {
+  const since = new Date(ladder.lastBeatMs).toISOString()
+  return `La escalera de ${ladder.dir} murio desde ${since}: sus ${ladder.stale.length} peldanos dejaron de latir (reload de la ventana, actualizacion o suspension) y la detuve. ${AUDIT_HINT}`
+}
+
+function returnNote(ladder) {
+  if (!ladder.dead) return `El usuario volvio: escribi ${join(ladder.dir, 'stop')} y la escalera se detiene sola. Los ${ladder.live.length} peldanos restantes saldran con KEEPALIVE_STOPPED; responde cada uno con una linea y sin herramientas.`
+  if (ladder.marked) return null
+  return deadNote(ladder)
+}
+
+for (const ladder of mine.filter(l => l.marked)) {
   const deadMarker = join(ladder.dir, 'DEAD')
-  if (!existsSync(deadMarker)) continue
-  notes.push(`La escalera de ${ladder.dir} murio: ${readFileSync(deadMarker, 'utf8').trim()}. El cache pudo haberse enfriado; verificalo con scripts/cache_audit.py antes de afirmar nada.`)
+  notes.push(`La escalera de ${ladder.dir} murio: ${readFileSync(deadMarker, 'utf8').trim()}. ${AUDIT_HINT}`)
   rmSync(deadMarker, { force: true })
 }
 
@@ -50,11 +67,10 @@ if (leaving) {
     )
   }
 } else if (!notification) {
-  for (const ladder of mine) {
-    const armedAgo = ladder.armedAtMs ? Date.now() - ladder.armedAtMs : 0
-    if (armedAgo < GRACE_MS) continue
+  for (const ladder of mine.filter(isPastGrace)) {
     writeFileSync(join(ladder.dir, 'stop'), new Date().toISOString(), 'utf8')
-    notes.push(`El usuario volvio: escribi ${join(ladder.dir, 'stop')} y la escalera se detiene sola. Los ${ladder.live.length} peldanos restantes saldran con KEEPALIVE_STOPPED; responde cada uno con una linea y sin herramientas.`)
+    const note = returnNote(ladder)
+    if (note) notes.push(note)
   }
 }
 

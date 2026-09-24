@@ -24,15 +24,25 @@ export function isSystemNotification(prompt) {
   return String(prompt ?? '').trimStart().startsWith('<task-notification>')
 }
 
-function aliveFiles(rungsDir) {
+function aliveNames(rungsDir) {
+  return readdirSync(rungsDir).filter(name => name.endsWith('.alive'))
+}
+
+// A rung deletes its .alive on a clean exit, possibly between readdir and stat.
+function statRung(rungsDir, name, stat) {
+  const path = join(rungsDir, name)
+  try {
+    const info = stat(path)
+    return { name, path, mtimeMs: info.mtimeMs, bornMs: info.birthtimeMs || info.ctimeMs }
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null
+    throw error
+  }
+}
+
+export function aliveFiles(rungsDir, stat = statSync) {
   if (!existsSync(rungsDir)) return []
-  return readdirSync(rungsDir)
-    .filter(name => name.endsWith('.alive'))
-    .map(name => {
-      const path = join(rungsDir, name)
-      const stat = statSync(path)
-      return { name, path, mtimeMs: stat.mtimeMs, bornMs: stat.birthtimeMs || stat.ctimeMs }
-    })
+  return aliveNames(rungsDir).map(name => statRung(rungsDir, name, stat)).filter(Boolean)
 }
 
 export function listLadders() {
@@ -45,15 +55,24 @@ export function listLadders() {
 
 export function describeLadder(dir) {
   const rungs = aliveFiles(join(dir, 'rungs'))
-  const now = Date.now()
   return {
     dir,
     rungs,
     stopped: existsSync(join(dir, 'stop')),
     owner: readOwner(dir),
-    live: rungs.filter(rung => now - rung.mtimeMs <= STALE_MS),
-    stale: rungs.filter(rung => now - rung.mtimeMs > STALE_MS),
-    armedAtMs: rungs.length ? Math.min(...rungs.map(rung => rung.bornMs)) : null,
+    ...summarizeRungs(rungs, Date.now()),
+  }
+}
+
+export function summarizeRungs(rungs, now) {
+  const live = rungs.filter(rung => now - rung.mtimeMs <= STALE_MS)
+  const stale = rungs.filter(rung => now - rung.mtimeMs > STALE_MS)
+  return {
+    live,
+    stale,
+    dead: stale.length > 0 && live.length === 0,
+    armedAtMs: live.length ? Math.min(...live.map(rung => rung.bornMs)) : null,
+    lastBeatMs: rungs.length ? Math.max(...rungs.map(rung => rung.mtimeMs)) : null,
   }
 }
 
@@ -72,10 +91,16 @@ export function createStateDir(sessionId) {
   const slug = (sessionId || 'session').replace(/[^0-9a-zA-Z]/g, '').slice(0, 8) || 'session'
   const dir = join(ROOT, slug)
   mkdirSync(join(dir, 'rungs'), { recursive: true })
+  clearRungs(join(dir, 'rungs'))
   rmSync(join(dir, 'stop'), { force: true })
   rmSync(join(dir, 'DEAD'), { force: true })
   if (sessionId) writeFileSync(join(dir, 'owner'), sessionId, 'utf8')
   return dir
+}
+
+// Leftover .alive files from a killed ladder would make the new one look dead or old enough to stop.
+function clearRungs(rungsDir) {
+  for (const name of aliveNames(rungsDir)) rmSync(join(rungsDir, name), { force: true })
 }
 
 export function emit(output) {

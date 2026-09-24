@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { isSystemNotification, ownedBy } from '../hooks/lib.mjs'
@@ -30,11 +30,19 @@ function armLadder(t) {
   return { home, dir }
 }
 
-function runHook(home, prompt, sessionId = SESSION) {
+const DEFAULT_GRACE = null
+
+function hookEnv(home, graceMs) {
+  const { KEEPALIVE_GRACE_MS, ...base } = process.env
+  const env = { ...base, HOME: home, USERPROFILE: home }
+  return graceMs === DEFAULT_GRACE ? env : { ...env, KEEPALIVE_GRACE_MS: graceMs }
+}
+
+function runHook(home, prompt, sessionId = SESSION, graceMs = '0') {
   return spawnSync(process.execPath, [HOOK], {
     input: JSON.stringify({ session_id: sessionId, prompt }),
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, USERPROFILE: home, KEEPALIVE_GRACE_MS: '0' },
+    env: hookEnv(home, graceMs),
   })
 }
 
@@ -131,4 +139,59 @@ test('ownedBy requires both an owner and a session id that match', () => {
   assert.equal(ownedBy({ owner: null }, 'A'), false)
   assert.equal(ownedBy({ owner: 'A' }, null), false)
   assert.equal(ownedBy({ owner: null }, null), false)
+})
+
+const FIVE_HOURS_AGO = new Date(Date.now() - 5 * 60 * 60 * 1000)
+
+function killedLadder(t, count = 3) {
+  const home = makeHome(t)
+  const dir = join(home, '.claude', 'keepalive', SESSION)
+  mkdirSync(join(dir, 'rungs'), { recursive: true })
+  writeFileSync(join(dir, 'owner'), SESSION, 'utf8')
+  for (let rung = 1; rung <= count; rung++) {
+    const alive = join(dir, 'rungs', `${rung}-${count}.alive`)
+    writeFileSync(alive, '', 'utf8')
+    utimesSync(alive, FIVE_HOURS_AGO, FIVE_HOURS_AGO)
+  }
+  return { home, dir }
+}
+
+function aliveNames(dir) {
+  return readdirSync(join(dir, 'rungs')).filter(name => name.endsWith('.alive'))
+}
+
+test('coming back to a ladder whose rungs were all killed reports that it died', t => {
+  const { home, dir } = killedLadder(t)
+  const result = runHook(home, 'ya volví, sigamos', SESSION, DEFAULT_GRACE)
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /murio/)
+  assert.match(result.stdout, /cache_audit/)
+  assert.doesNotMatch(result.stdout, /0 peldanos restantes/)
+  assert.equal(existsSync(join(dir, 'stop')), true)
+})
+
+test('a ladder with a DEAD marker is reported dead only once', t => {
+  const { home, dir } = killedLadder(t)
+  writeFileSync(join(dir, 'DEAD'), '3 peldanos sin latido', 'utf8')
+  const result = runHook(home, 'ya volví')
+  assert.equal(result.status, 0)
+  assert.equal(result.stdout.match(/murio/g)?.length, 1)
+  assert.doesNotMatch(result.stdout, /peldanos restantes/)
+})
+
+test('re-arming over a killed ladder clears its stale rungs', t => {
+  const { home, dir } = killedLadder(t, 1)
+  const result = runHook(home, 'me voy a dormir')
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /anuncia ausencia/)
+  assert.deepEqual(aliveNames(dir), [])
+})
+
+test('a freshly re-armed ladder keeps its grace on the next message', t => {
+  const { home, dir } = killedLadder(t, 1)
+  runHook(home, 'me voy a dormir')
+  writeFileSync(join(dir, 'rungs', '1-12.alive'), '', 'utf8')
+  const result = runHook(home, '8 horas', SESSION, DEFAULT_GRACE)
+  assert.equal(result.status, 0)
+  assert.equal(existsSync(join(dir, 'stop')), false)
 })
