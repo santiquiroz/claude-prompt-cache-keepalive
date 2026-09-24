@@ -55,6 +55,17 @@ The wake-on-exit behavior was verified in the VS Code extension. In a terminal s
 | `hooks/watchdog.mjs` | `Stop`: flags rungs that stopped heart-beating (reload, update, forced sleep) |
 | `hooks/install.py` | Merges both hooks into `~/.claude/settings.json` without touching the rest |
 
+## Tests
+
+The suites use only the standard libraries (Node >= 20.11, Python 3) and run every hook and script against a temporary home and state directory, never your real `~/.claude`:
+
+```bash
+node --test tests/*.test.mjs
+python -m unittest discover -s tests -v
+```
+
+`rung.ps1` is exercised on Windows and `rung.sh` on macOS/Linux; CI runs both suites on Windows and Ubuntu.
+
 ## Limits
 
 - The editor/terminal session must stay open: a window reload, an extension auto-update or an OS restart kills the timers.
