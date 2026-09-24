@@ -70,6 +70,14 @@ test('a notification that quotes a leaving phrase does not arm a ladder', t => {
   assert.equal(existsSync(join(home, '.claude', 'keepalive')), false)
 })
 
+test('a work message that mentions afk does not arm a ladder', t => {
+  const home = makeHome(t)
+  const result = runHook(home, 'el log dice: user afk timeout')
+  assert.equal(result.status, 0)
+  assert.equal(result.stdout, '')
+  assert.equal(existsSync(join(home, '.claude', 'keepalive')), false)
+})
+
 test('a notification still reports a dead ladder', t => {
   const { home, dir } = armLadder(t)
   writeFileSync(join(dir, 'DEAD'), '1 peldanos sin latido', 'utf8')
