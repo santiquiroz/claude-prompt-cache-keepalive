@@ -14,6 +14,13 @@ const LEAVING = [
   'hasta mañana!',
   'me voy, vuelvo en la tarde',
   'voy a estar afk',
+  'vuelvo en 30 minutos',
+  'vuelvo en 1h',
+  'vuelvo en 45 min',
+  'me voy, vuelvo en 20 min',
+  'vuelvo en 1h, deja eso',
+  'afk 2h',
+  'brb 10 min',
 ]
 
 const WORKING = [
@@ -23,6 +30,7 @@ const WORKING = [
   'me voy al grano: falla el build',
   'hasta mañana no necesito esto, arregla el test ya',
   'mira este log:\n```\n12:01 user afk timeout\n12:02 me voy a dormir\n```\nque significa?',
+  'afk 2h de reuniones ayer, revisa el log',
   'el usuario escribio esto:\n> me voy a dormir, vuelvo en 2 horas\nporque no armo?',
 ]
 

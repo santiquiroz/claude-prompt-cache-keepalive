@@ -32,7 +32,7 @@ const SENTENCE_END = /(?<=[.!?\n])\s+/
 const AWAY_ANYWHERE = [
   /\bme voy a dormir\b/i, /\bvoy a dormir\b/i, /\bme duermo\b/i,
   /\bme ausento\b/i, /\bme desconecto\b/i, /\bme voy (un rato|para|a la)\b/i,
-  /(?<!\bcuando )\bvuelvo (en (\d|un|una|unos|unas|media|dos|tres|la tarde|la noche|la ma(n|ñ)ana)|m(a|á)s tarde|luego|despu(e|é)s)\b/i,
+  /(?<!\bcuando )\bvuelvo (en (\d+|(un|una|unos|unas|media|dos|tres|la tarde|la noche|la ma(n|ñ)ana)\b)|(m(a|á)s tarde|luego|despu(e|é)s)\b)/i,
   /\best(a|á)r(e|é) fuera\b/i, /\bno voy a estar\b/i,
   /\bvoy a (almorzar|comer|salir)\b/i, /\bsalgo a\b/i, /\bentro a una reuni(o|ó)n\b/i,
   /\bmientras (duermo|no est(o|é)y|estoy fuera)\b/i, /\bdeja(lo)? (esto )?corriendo\b/i,
@@ -40,11 +40,14 @@ const AWAY_ANYWHERE = [
 ]
 
 // Greetings and short tags only say goodbye when they close the message: "buenas noches, revisa el PR" is a request.
-const AWAY_CLOSING = /\b(buenas noches|hasta ma(n|ñ)ana|afk|brb)[^\p{L}\p{N}]*$/iu
+const AWAY_CLOSING = [
+  /\b(buenas noches|hasta ma(n|ñ)ana|afk|brb)[^\p{L}\p{N}]*$/iu,
+  /\b(afk|brb) \d+ ?(h|hrs?|horas?|m|mins?|minutos?)[^\p{L}\p{N}]*$/iu,
+]
 
 export function detectLeaving(prompt) {
   const text = announcementText(prompt)
-  return AWAY_ANYWHERE.some(pattern => pattern.test(text)) || AWAY_CLOSING.test(text)
+  return [...AWAY_ANYWHERE, ...AWAY_CLOSING].some(pattern => pattern.test(text))
 }
 
 function announcementText(prompt) {
