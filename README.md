@@ -53,7 +53,7 @@ The wake-on-exit behavior was verified in the VS Code extension. In a terminal s
 | `scripts/cache_audit.py` | Reads a session transcript and flags turns that lost the cache |
 | `hooks/arm-nudge.mjs` | `UserPromptSubmit`: arms the ladder on a leaving phrase, stops it when you return |
 | `hooks/watchdog.mjs` | `Stop`: flags rungs that stopped heart-beating (reload, update, forced sleep) |
-| `hooks/install.py` | Merges both hooks into `~/.claude/settings.json` without touching the rest |
+| `hooks/install.py` | Merges both hooks into `~/.claude/settings.json` without touching the rest; `--uninstall` removes only them |
 
 ## Tests
 
